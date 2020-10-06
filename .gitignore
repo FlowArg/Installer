@@ -7,3 +7,4 @@ build/
 .settings/
 /repo/
 *.log
+out

@@ -20,8 +20,6 @@ import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Pack200;
 
-import javax.swing.ProgressMonitor;
-
 import org.tukaani.xz.XZInputStream;
 
 import com.google.common.base.Charsets;
@@ -39,7 +37,7 @@ public class DownloadUtils {
     private static final String PACK_NAME = ".pack.xz";
     public static boolean OFFLINE_MODE = false;
 
-    public static int downloadInstalledLibraries(boolean isClient, File librariesDir, IMonitor monitor, List<LibraryInfo> libraries, int progress, List<Artifact> grabbed, List<Artifact> bad)
+    public static void downloadInstalledLibraries(boolean isClient, File librariesDir, IMonitor monitor, List<LibraryInfo> libraries, List<Artifact> grabbed, List<Artifact> bad)
     {
         for (LibraryInfo library : libraries)
         {
@@ -52,7 +50,6 @@ public class DownloadUtils {
                 String libURL = library.getURL();
                 if (libPath.exists() && checksumValid(libPath, checksums))
                 {
-                    monitor.setProgress(progress++);
                     continue;
                 }
 
@@ -119,9 +116,7 @@ public class DownloadUtils {
                 else
                     monitor.setNote(String.format("Considering library %s: Not Downloading {Wrong Side}", artifact.getDescriptor()));
             }
-            monitor.setProgress(progress++);
         }
-        return progress;
     }
 
     private static boolean checksumValid(File libPath, List<String> checksums)
@@ -368,6 +363,10 @@ public class DownloadUtils {
         try
         {
             URL url = new URL(libURL);
+            if(url.toExternalForm().contains("forge-") && url.toExternalForm().endsWith(".jar") && !url.toExternalForm().contains("universal"))
+            {
+            	url = new URL(libURL.replace(".jar", "-universal.jar"));
+            }
             URLConnection connection = url.openConnection();
             connection.setConnectTimeout(5000);
             connection.setReadTimeout(5000);
@@ -460,70 +459,31 @@ public class DownloadUtils {
 
     public static IMonitor buildMonitor()
     {
-        if (ServerInstall.headless)
-        {
-            return new IMonitor()
+        return new IMonitor()
+        {          
+            @Override
+            public void setMaximum(int max)
             {
+                
+            }
 
-                @Override
-                public void setMaximum(int max)
-                {
-                }
+            @Override
+            public void setNote(String note)
+            {
+                System.out.println(note);
+            }
 
-                @Override
-                public void setNote(String note)
-                {
-                    System.out.println("MESSAGE: "+ note);
-                }
+            @Override
+            public void setProgress(int progress)
+            {
+            	
+            }
 
-                @Override
-                public void setProgress(int progress)
-                {
-
-                }
-
-                @Override
-                public void close()
-                {
-
-                }
-
-            };
-        }
-        else
-        {
-            return new IMonitor() {
-                private ProgressMonitor monitor;
-                {
-                    monitor = new ProgressMonitor(null, "Downloading libraries", "Libraries are being analyzed", 0, 1);
-                    monitor.setMillisToPopup(0);
-                    monitor.setMillisToDecideToPopup(0);
-                }
-                @Override
-                public void setMaximum(int max)
-                {
-                    monitor.setMaximum(max);
-                }
-
-                @Override
-                public void setNote(String note)
-                {
-                    System.out.println(note);
-                    monitor.setNote(note);
-                }
-
-                @Override
-                public void setProgress(int progress)
-                {
-                    monitor.setProgress(progress);
-                }
-
-                @Override
-                public void close()
-                {
-                    monitor.close();
-                }
-            };
-        }
+            @Override
+            public void close()
+            {
+                
+            }
+        };
     }
 }

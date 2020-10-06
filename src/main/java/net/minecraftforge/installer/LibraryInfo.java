@@ -11,7 +11,7 @@ public class LibraryInfo
 {
     private Artifact artifact;
     private List<String> checksums;
-    private boolean side = false;
+    private boolean side = true;
     private boolean enabled = true;
     private String  url = DownloadUtils.LIBRARIES_URL;
 
@@ -30,7 +30,6 @@ public class LibraryInfo
                 }
             }));
         }
-        this.side = node.isBooleanValue(marker) && node.getBooleanValue(marker);
 
         if (MirrorData.INSTANCE.hasMirrors() && node.isStringValue("url"))
             url = MirrorData.INSTANCE.getMirrorURL();
@@ -41,8 +40,6 @@ public class LibraryInfo
     public LibraryInfo(OptionalLibrary lib, String marker)
     {
         this.artifact = new Artifact(lib.getArtifact());
-        this.side = (lib.isServer() && "serverreq".equals(marker)) ||
-                    (lib.isClient() && "clientreq".equals(marker));
         this.url = lib.getMaven();
     }
 
