@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 package net.minecraftforge.installer;
+
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -25,7 +26,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Arrays;
-import java.util.Locale;
 import java.util.regex.Pattern;
 
 import javax.swing.UIManager;
@@ -33,7 +33,7 @@ import javax.swing.UIManager;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
-import net.minecraftforge.installer.actions.Actions;
+import net.minecraftforge.installer.actions.ClientInstall;
 import net.minecraftforge.installer.actions.ProgressCallback;
 import net.minecraftforge.installer.json.Install;
 import net.minecraftforge.installer.json.Util;
@@ -75,87 +75,20 @@ public class SimpleInstaller
         }
 
         OptionParser parser = new OptionParser();
-        OptionSpec<File> serverInstallOption = parser.accepts("installServer", "Install a server to the current directory").withOptionalArg().ofType(File.class).defaultsTo(new File("."));
-        OptionSpec<File> extractOption = parser.accepts("extract", "Extract the contained jar file to the specified directory").withOptionalArg().ofType(File.class).defaultsTo(new File("."));
+        OptionSpec<File> clientInstallOption = parser.accepts("installClient", "Install a client to the specified directory").withOptionalArg().ofType(File.class).defaultsTo(new File("."));
         OptionSpec<Void> helpOption = parser.acceptsAll(Arrays.asList("h", "help"),"Help with this installer");
-        OptionSpec<Void> offlineOption = parser.accepts("offline", "Don't attempt any network calls");
+        OptionSpec<Void> noguiOption = parser.accepts("nogui");
         OptionSet optionSet = parser.parse(args);
 
         if (optionSet.has(helpOption)) {
             parser.printHelpOn(System.out);
             return;
         }
-
-        int cnt = 0;
-        if (optionSet.has(offlineOption))
-        {
-            DownloadUtils.OFFLINE_MODE = true;
-            monitor.message("ENABELING OFFLINE MODE");
-            cnt = 1;
-        }
-        else
-        {
-            FixSSL.fixup(monitor);
-        }
-
-        Actions action = null;
-        File target = null;
-        if (optionSet.has(serverInstallOption)) {
-            action = Actions.SERVER;
-            target = optionSet.valueOf(serverInstallOption);
-        } else if (optionSet.has(extractOption)) {
-            action = Actions.EXTRACT;
-            target = optionSet.valueOf(extractOption);
-        }
-
-        if (action != null)
-        {
-            try
-            {
-                SimpleInstaller.headless = true;
-                monitor.message("Target Directory: " + target);
-                Install install = Util.loadInstallProfile();
-                if (install.getSpec() != 0) {
-                    monitor.stage("Invalid launcher profile spec: " + install.getSpec() + " Only 0 is supported");
-                    System.exit(1);
-                }
-                if (!action.getAction(install, monitor).run(target, a -> true))
-                {
-                    monitor.stage("There was an error during installation");
-                    System.exit(1);
-                }
-                else
-                {
-                    monitor.message(action.getSuccess(install.getPath().getName()));
-                    monitor.stage("You can delete this installer file now if you wish");
-                }
-                System.exit(0);
-            }
-            catch (Throwable e)
-            {
-                monitor.stage("A problem installing was detected, install cannot continue");
-                System.exit(1);
-            }
-        }
-        else if (optionSet.specs().size() > cnt)
-            parser.printHelpOn(System.err);
-        else
-            launchGui(monitor);
+        final boolean bool = optionSet.has(clientInstallOption);
+        launchGui(monitor, bool, bool ? clientInstallOption.value(optionSet) : null, optionSet.has(noguiOption));
     }
 
-    private static File getMCDir()
-    {
-        String userHomeDir = System.getProperty("user.home", ".");
-        String osType = System.getProperty("os.name").toLowerCase(Locale.ENGLISH);
-        String mcDir = ".minecraft";
-        if (osType.contains("win") && System.getenv("APPDATA") != null)
-            return new File(System.getenv("APPDATA"), mcDir);
-        else if (osType.contains("mac"))
-            return new File(new File(new File(userHomeDir, "Library"),"Application Support"),"minecraft");
-        return new File(userHomeDir, mcDir);
-    }
-
-    private static void launchGui(ProgressCallback monitor)
+    private static void launchGui(ProgressCallback monitor, boolean installClient, File  dirToInstall, boolean noGui)
     {
         try
         {
@@ -166,8 +99,8 @@ public class SimpleInstaller
         }
 
         Install profile = Util.loadInstallProfile();
-        InstallerPanel panel = new InstallerPanel(getMCDir(), profile);
-        panel.run(monitor);
+        InstallerPanel panel = new InstallerPanel(dirToInstall, profile);
+        panel.run(monitor, installClient ? new ClientInstall(profile, monitor) : null, noGui);
     }
 
     private static OutputStream getLog() throws FileNotFoundException
